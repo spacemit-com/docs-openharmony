@@ -1,6 +1,6 @@
 # K1 OH5.0
 
-- [1. K1_OH5.0简介](1_K1_OH5.0_overview.md)
+- [1. K1_OH5.0简介](root_overview.md)
 - [2. K1_OH5.0下载编译烧录说明](2_K1_OH5.0_build_flash.md)
 - [3. K1_OH5.0方案添加移植说明](3_K1_OH5.0_porting.md)
 - [4. K1_OH5.0系统定制说](4_K1_OH5.0_customization.md)
