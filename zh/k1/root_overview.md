@@ -1,5 +1,3 @@
-sidebar_position: 1
-
 # K1 OH5.0简介
 
 ## 修订记录
@@ -77,23 +75,23 @@ sidebar_position: 1
 <tr>
 <td rowspan=4 colspan=1>硬件</td>
 <td>MUSE Paper方案框图</td>
-<td rowspan=2 colspan=1><a href="https://developer.spacemit.com/documentation?token=GUZNwFdHdiL0tBkpuNwcr7E1nBf&type=pdf">点我查看</a></td>
+<td rowspan=2 colspan=1><a href="https://cdn-resource.spacemit.com/file/product/K1/MUSEPaper_schematic-V1.1-20250701.pdf">点我查看</a></td>
 </tr>
 <tr>
 <td>MUSE Paper原理图</td>
 </tr>
 <tr>
 <td>MUSE Paper PCB</td>
-<td><a href="https://developer.spacemit.com/documentation?token=LhJVwPoqniDBaPkVXTlcXoRCn7e&type=pdf">点我查看</a></td>
+<td><a href="https://cdn-resource.spacemit.com/file/product/K1/MUSEPaper_layout-V1.0-20241118.pdf">点我查看</a></td>
 </tr>
 <tr>
 <td>MUSE Paper 用户使用指南</td>
-<td><a href="https://developer.spacemit.com/documentation?token=W6p5wcK2iiSB0Eke4P2cHQpunAd">点我查看</a></td>
+<td><a href="https://www.spacemit.com/community/document/info?lang=zh&nodepath=hardware/eco/k1_muse_paper/paper_user_guide.md">点我查看</a></td>
 </tr>
 <tr>
 <td rowspan=2 colspan=1>工具</td>
 <td>刷机/写号工具：TitanFlasher</td>
-<td><a href="https://developer.spacemit.com/documentation?token=O6wlwlXcoiBZUikVNh2cczhin5d">点我下载并获取使用说明</a></td>
+<td><a href="https://www.spacemit.com/community/document/info?lang=zh&nodepath=tools/user_guide/flasher_user_guide.md">点我下载并获取使用说明</a></td>
 </tr>
 <tr>
 <td>应用开发：devecostudio-windows-5.0.5.310.zip</td>
@@ -142,106 +140,19 @@ sidebar_position: 1
 
 ## 3. 支持的设备
 
-<table>
-<tbody>
-<tr>
-<td>生态产品</td>
-<td><strong>MUSE Paper2</strong><br/>（新版硬件）<br/><strong>MUSE Paper</strong><br/>（旧版硬件）<br/><a href="https://developer.spacemit.com/documentation?token=HIrmwMT2piFuTRkusIrcO0ADngg&type=pdf">点我了解</a></td>
-<td><strong>MUSE Card</strong><br/><a href="https://developer.spacemit.com/documentation?token=MPFBwlWwxiWc2WkZ2Cdc8fZynje&type=pdf">点我了解</a></td>
-<td><strong>MUSE Pi</strong><br/><a href="https://developer.spacemit.com/documentation?token=IraAwPDzPiLwFBkm3WBcwzmhnph&type=pdf">点我了解</a></td>
-<td><strong>MUSE Pi Pro</strong><br/><a href="https://developer.spacemit.com/documentation?token=KHRWwjlZziiObikHeUScjbVEnMg&type=pdf">点我了解</a></td>
-<td><strong>MUSE Book</strong><br/><a href="https://developer.spacemit.com/documentation?token=KKPGwQryziN7qokFxzlcEwDFnng&type=pdf">点我了解</a></td>
-</tr>
-<tr>
-<td>形态</td>
-<td>平板电脑</td>
-<td>开发板</td>
-<td>开发板</td>
-<td>开发板</td>
-<td>笔记本电脑</td>
-</tr>
-<tr>
-<td>启动方式</td>
-<td>Emmc<br/>tf卡</td>
-<td>tf卡</td>
-<td>emmc</td>
-<td>emmc</td>
-<td>nor+ssd</td>
-</tr>
-<tr>
-<td>显示</td>
-<td>MipiDSI</td>
-<td>MipiDSI<br/>HDMI</td>
-<td>MipiDSI<br/>HDMI</td>
-<td>MipiDSI</td>
-<td>MipiDSI转edp</td>
-</tr>
-<tr>
-<td>屏幕触摸</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>×</td>
-</tr>
-<tr>
-<td>wifi</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-</tr>
-<tr>
-<td>BT</td>
-<td>√</td>
-<td>×</td>
-<td>×</td>
-<td>×</td>
-<td>×</td>
-</tr>
-<tr>
-<td>ethnet</td>
-<td>√（usb转）</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>×</td>
-</tr>
-<tr>
-<td>usb</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-</tr>
-<tr>
-<td>键鼠</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-<td>√</td>
-</tr>
-<tr>
-<td>摄像头</td>
-<td>√（支持双摄）</td>
-<td>×</td>
-<td>×</td>
-<td>×</td>
-<td>×</td>
-</tr>
-<tr>
-<td>双屏</td>
-<td>×</td>
-<td>×</td>
-<td>×</td>
-<td>×</td>
-<td>√（接HDMI）</td>
-</tr>
-</tbody>
-</table>
+| 生态产品       | MUSE Paper2（新版硬件）<br>MUSE Paper（旧版硬件）<br>[点我了解](https://www.spacemit.com/community/document/info?lang=zh&nodepath=hardware/eco/k1_muse_paper/root_overview.md) | MUSE Card<br>[点我了解](https://www.spacemit.com/community/document/info?lang=zh&nodepath=hardware/eco/k1_muse_card/root_overview.md) | MUSE Pi<br>[点我了解](https://www.spacemit.com/community/document/info?lang=zh&nodepath=hardware/eco/k1_muse_pi/root_overview.md) | MUSE Pi Pro<br>[点我了解](https://www.spacemit.com/community/document/info?lang=zh&nodepath=hardware/eco/k1_muse_pi_pro/root_overview.md) | MUSE Book<br>[点我了解](https://www.spacemit.com/community/document/info?lang=zh&nodepath=hardware/eco/k1_muse_book/root_overview.md) |
+|------|---------|--------|-----|-----|------------|
+| 产品形态       | 平板电脑  | 开发板    | 开发板 | 开发板   | 笔记本电脑  |
+| 启动方式       | eMMC<br>TF卡    | TF卡   | eMMC   | eMMC  | NOR + SSD  |
+| 显示输出       | MIPI DSI   | MIPI DSI<br>HDMI | MIPI DSI<br>HDMI   | MIPI DSI      | MIPI DSI 转 eDP |
+| 屏幕触摸       | √   | √   | √  | √  | ×    |
+| Wi-Fi          | √    | √   | √   | √     | √    |
+| BT             | √   | ×   | ×  | ×  | ×    |
+| Ethernet       | √（USB 转）  | √   | √    | √  | ×   |
+| USB            | √    | √   | √ | √    | √   |
+| 键鼠           | √   | √    | √  | √   | √ |
+| 摄像头         | √（支持双摄）| ×   | ×  | ×  | × |
+| 双屏显示       | ×    | ×    | ×   | ×   | √（接 HDMI）  |
 
 ## 4. 上手指南
 
