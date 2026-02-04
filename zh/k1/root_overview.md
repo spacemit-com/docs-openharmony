@@ -228,4 +228,3 @@
 
 [点击购买 MUSE Book](https://m.tb.cn/h.gUvG9fgiJa4uJ43?tk=SrdHWBsSc5x)
 
-[点击购买 MUSE Pi](https://m.tb.cn/h.g5ftXonDbc8enj3?tk=MOUHWBshBxR)
