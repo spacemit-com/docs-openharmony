@@ -1,4 +1,6 @@
-# K1 OH5.0简介
+sidebar_position: 1
+
+# 1. K1 OH5.0简介
 
 ## 修订记录
 
