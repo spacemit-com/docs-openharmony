@@ -47,18 +47,6 @@ sidebar_position: 1
 <td></td>
 </tr>
 <tr>
-<td>K1 OH5.0三方包移植说明</td>
-<td></td>
-</tr>
-<tr>
-<td>K1 OH5.0方案OTA使用说明</td>
-<td></td>
-</tr>
-<tr>
-<td>K1 OH5.0驱动开发说明</td>
-<td></td>
-</tr>
-<tr>
 <td>K1 OH5.0应用开发说明</td>
 <td></td>
 </tr>
@@ -67,11 +55,19 @@ sidebar_position: 1
 <td></td>
 </tr>
 <tr>
-<td>K1 OH5.0工程测试应用使用说明</td>
+<td>K1 OH5.0驱动开发说明</td>
 <td></td>
 </tr>
 <tr>
-<td>K1 烧录工具使用说明</td>
+<td>K1 OH5.0方案OTA使用说明</td>
+<td></td>
+</tr>
+<tr>
+<td>K1 OH5.0三方包移植说明</td>
+<td></td>
+</tr>
+<tr>
+<td>K1 OH5.0工程测试应用使用说明</td>
 <td></td>
 </tr>
 <tr>
