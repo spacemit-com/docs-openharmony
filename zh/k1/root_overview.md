@@ -30,7 +30,7 @@ sidebar_position: 1
 <td>备注/下载地址</td>
 </tr>
 <tr>
-<td rowspan=11 colspan=1>软件</td>
+<td rowspan=10 colspan=1>软件</td>
 <td>K1 OH5.0下载编译烧录说明</td>
 <td></td>
 </tr>
