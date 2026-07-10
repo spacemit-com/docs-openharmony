@@ -233,7 +233,7 @@ srcPixelMap
 1. **克隆仓库**
 
    ```bash
-   git clone <repo-url>
+   git clone https://gitee.com/spacemit-openharmony/opencvdemo.git
    cd opencvdemo
    ```
 

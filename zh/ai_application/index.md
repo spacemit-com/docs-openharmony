@@ -19,4 +19,5 @@ sidebar_position: 5
 - [4. TTS应用说明](4_OH_AI_ttsdemo.md)
 - [5. ASR应用说明](5_OH_AI_asrdemo.md)
 - [6. OpenCV应用说明](6_OH_AI_opencvdemo.md)
+- [7. VLM视觉问答应用说明](7_OH_AI_vlmdemo.md)
 

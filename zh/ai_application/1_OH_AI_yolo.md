@@ -266,7 +266,7 @@ head.jpg (查询人脸)          people.jpg (场景图)
 **1. 克隆项目**
 
 ```bash
-git clone <repo_url>
+git clone https://gitee.com/spacemit-openharmony/yolo_detection.git
 cd yolo_detection
 ```
 
