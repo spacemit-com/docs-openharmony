@@ -317,10 +317,16 @@ for (size_t vl; n > 0; n -= vl, src += vl * 3, dst += vl) {
 
 #### 方式一：RISC-V 平台（推荐）
 
+**Step 0: 克隆项目**
+
+```bash
+git clone https://gitee.com/spacemit-openharmony/rvvdemo.git
+cd rvvdemo
+```
+
 **Step 1: 预编译 RVV 静态库**
 
 ```bash
-cd /path/to/rvvdemo
 ./precompile_rvv.sh
 ```
 

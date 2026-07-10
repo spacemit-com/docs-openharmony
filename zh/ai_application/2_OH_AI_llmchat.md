@@ -207,6 +207,27 @@ modelStatus = 'ready'   modelStatus = 'loading'
 
 ---
 
+## 代码获取
+
+```bash
+git clone https://gitee.com/spacemit-openharmony/llmchat.git
+cd llmchat
+```
+
+---
+
+## 模型文件获取
+
+llmchat 使用 GGUF 格式的量化大语言模型，推荐 Q4_K_M 或 Q4_1 量化（兼顾速度与质量）。
+
+- 可从 [Hugging Face](https://huggingface.co/models?library=gguf) 下载社区提供的 GGUF 模型
+- 也可与 vlmdemo 共用 FastVLM 文本解码器 `fastvlm-text-0.5B-Q4_1.gguf`（位于代码仓库 `fastvlm-mm-0.5b-q4_1/` 目录，约 876 MB）
+- 或使用 llama.cpp 自带的 `llama-quantize` 工具，将 FP16 模型量化为 GGUF 格式
+
+模型文件推送到设备的方法见下文「设备部署 → 部署模型文件」。
+
+---
+
 ## 编译构建
 
 ### 环境要求
@@ -215,7 +236,7 @@ modelStatus = 'ready'   modelStatus = 'loading'
 - **OpenHarmony SDK v12**
 - 已连接的 OpenHarmony 设备或模拟器
 - 设备上 `llama-server` 可执行文件已在 PATH 中
-- 模型文件已放置于设备 `/etc/xxx.gguf`（路径可配置）
+- 模型文件已放置于设备 `/etc/model.gguf`（路径可配置）
 
 ### 构建步骤
 
@@ -261,12 +282,12 @@ entry/build/default/outputs/default/
 
 `EntryAbility.ets:32` — llama-server 启动路径：
 ```typescript
-const modelPath = '/etc/xxx.gguf';  // 改为实际路径
+const modelPath = '/etc/model.gguf';  // 改为实际路径
 ```
 
 `LlamaService.ets:30` — 请求 body 中的 model 字段：
 ```typescript
-private modelPath: string = '/etc/xxx.gguf'  // 改为实际路径
+private modelPath: string = '/etc/model.gguf'  // 改为实际路径
 ```
 
 ### 调整推理参数
@@ -342,13 +363,86 @@ private serverUrl: string = 'http://127.0.0.1:8080'
 
 ---
 
+## 设备部署
+
+目标设备：搭载 SpaceMIT K3 SoC 的 RISC-V 开发板（如 K3 Pico ITX，X100 为 CPU 核心型号）。
+
+> 以下步骤均在 **SpaceMIT K3 Pico ITX** 真机（riscv64、内核 6.18.3、16 核、16 GB 内存）实测验证。
+
+### 1. 部署动态库与可执行文件
+
+以下文件来自编译产物 `device/soc/spacemit/common/hardware/`，需推送到设备系统分区。
+
+```bash
+# 挂载系统分区为可写
+hdc shell "mount -o rw,remount /"
+
+# llama.cpp 动态库（带版本 SONAME）
+hdc file send libllama.so.0            /system/lib64/libllama.so.0
+hdc file send libggml.so.0             /system/lib64/libggml.so.0
+hdc file send libggml-base.so.0        /system/lib64/libggml-base.so.0
+hdc file send libggml-cpu.so.0         /system/lib64/libggml-cpu.so.0
+hdc file send libllama-common.so.0     /system/lib64/libllama-common.so.0
+hdc file send libllama-server-impl.so  /system/lib64/libllama-server-impl.so
+
+# llama-server 启动器（依赖 libllama-server-impl.so）
+hdc file send llama-server /system/bin/llama-server
+hdc shell "chmod 755 /system/bin/llama-server"
+```
+
+> 实测说明：K3 Pico ITX 镜像已预置上述库（`ls /system/lib64/libggml*.so.0 /system/lib64/libllama*.so.0` 可见）与 `llama-server`。若设备已烧录完整镜像，**可直接跳到步骤 2**，仅需推送模型文件。
+
+### 2. 部署模型文件
+
+```bash
+# 将量化模型推送到设备（路径与代码中的 modelPath 保持一致）
+hdc shell "mkdir -p /etc"
+hdc file send <model>.gguf /etc/model.gguf
+```
+
+若同时部署 vlmdemo，可与其共用同一模型：先推送到 `/etc/vlm/model.gguf`，再创建硬链接（实测后 link count = 2）：
+
+```bash
+hdc file send fastvlm-text-0.5B-Q4_1.gguf /etc/vlm/model.gguf
+hdc shell "ln -f /etc/vlm/model.gguf /etc/model.gguf"
+```
+
+### 3. 编译安装 HAP
+
+```bash
+# 构建（在 llmchat 项目根目录执行）
+node "<DevEco Studio 安装路径>/tools/hvigor/bin/hvigorw.js" \
+  --mode module -p module=entry@default -p product=default \
+  -p buildMode=release assembleHap --no-daemon
+
+# 安装到设备（需先卸载旧版本）
+hdc uninstall com.example.llmchat
+hdc install -r entry/build/default/outputs/default/entry-default-signed.hap
+```
+
+### 4. 启动验证
+
+```bash
+# 启动应用（llama-server 由应用自动拉起）
+hdc shell "aa start -b com.example.llmchat -a EntryAbility"
+
+# 等待约 10-30 秒模型加载完成，确认服务就绪
+hdc shell "curl -s http://127.0.0.1:8080/health"
+# 预期返回：{"status":"ok"}
+
+# 查看应用日志
+hdc shell "hilog | grep -E 'testTag|LlamaService'"
+```
+
+---
+
 ## FAQ
 
 **Q: 应用启动后一直显示「模型加载中」，无法进入聊天？**
 
 检查以下几点：
 1. 确认设备上 `llama-server` 在 PATH 中：`hdc shell which llama-server`
-2. 确认模型文件存在且可读：`hdc shell ls -lh /etc/xxx.gguf`
+2. 确认模型文件存在且可读：`hdc shell ls -lh /etc/model.gguf`
 3. 查看应用日志确认进程是否启动：`hdc shell hilog | grep testTag`
 4. 手动验证服务是否响应：`hdc shell curl http://127.0.0.1:8080/health`
 
