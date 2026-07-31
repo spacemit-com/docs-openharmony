@@ -9,10 +9,9 @@
  * @FilePath: \doc\docs-openharmony\zh\skills\index.md
  * @Description: 
 -->
-sidebar_position: 6
+
+sidebar_position: 7
 
 # Skill
 
 - [1. Camera调试](1_camera_skill.md)
-
-
