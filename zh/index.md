@@ -9,6 +9,7 @@
  * @FilePath: \doc\docs-openharmony\zh\index.md
  * @Description: 
 -->
+
 # OpenHarmony
 
 - [简介](root_overview.md)
@@ -16,4 +17,5 @@
 - [K1 OH6.1](k1_oh6.1/index.md)
 - [K3 OH6.1](k3_oh6.1/index.md)
 - [AI应用专题](ai_application/index.md)
+- [功耗优化专题](power_debug/index.md)
 - [Skill](skills/index.md)
