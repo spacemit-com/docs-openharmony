@@ -13,9 +13,10 @@
 # OpenHarmony
 
 - [简介](root_overview.md)
-- [K1 OH5.0](k1_oh5.0/index.md)
+- [K1 OH5.0（即将废弃）](k1_oh5.0/index.md)
 - [K1 OH6.1](k1_oh6.1/index.md)
 - [K3 OH6.1](k3_oh6.1/index.md)
 - [AI应用专题](ai_application/index.md)
 - [功耗优化专题](power_debug/index.md)
+- [浏览器专题](web/index.md)
 - [Skill](skills/index.md)

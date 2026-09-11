@@ -4,14 +4,14 @@
  * that can be found in the LICENSE file.
  * 
  * @Author: David(qiang.fu@spacemit.com)
- * @Date: 2026-04-07 11:04:01
- * @LastEditTime: 2026-06-06 13:50:40
- * @FilePath: \doc\docs-openharmony\zh\skills\index.md
+ * @Date: 2026-03-04 11:39:35
+ * @LastEditTime: 2026-06-06 13:44:43
+ * @FilePath: \doc\docs-openharmony\zh\skills\1_camera_skill.md
  * @Description: 
 -->
+sidebar_position: 1
 
-sidebar_position: 8
+# 浏览器开发环境搭建
 
-# Skill
 
-- [1. Camera调试](1_camera_skill.md)
+
