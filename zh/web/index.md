@@ -12,6 +12,6 @@
 
 sidebar_position: 7
 
-# 功耗优化专题
+# 浏览器开发专题
 
-- [1.K1 OH平台功耗调试参考](1_K1_OH_power_debug.md)
+- [1. 浏览器开发环境搭建](1_oh61_web.md)
