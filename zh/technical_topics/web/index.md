@@ -10,7 +10,7 @@
  * @Description: 
 -->
 
-sidebar_position: 7
+sidebar_position: 8
 
 # 浏览器开发专题
 
