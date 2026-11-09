@@ -5,7 +5,7 @@
  * 
  * @Author: David(qiang.fu@spacemit.com)
  * @Date: 2026-03-04 11:39:35
- * @LastEditTime: 2026-05-13 16:19:24
+ * @LastEditTime: 2026-11-07 10:00:00
  * @FilePath: \doc\docs-openharmony\zh\ai_application\1_OH_AI_yolo.md
  * @Description: 
 -->
@@ -15,12 +15,16 @@ sidebar_position: 1
 
 ## 修订记录
 
-| 修订版本 | 修订日期   | 修订说明       |
-|----------|------------|-------------|
-| 001      | 2026-04-27 | 初始版本       |
+| 修订版本 | 修订日期   | 修订说明 |
+|----------|------------|----------|
+| 001      | 2026-04-27 | 初始版本 |
+| 002      | 2026-11-07 | 对齐最新代码并依据 K3 平台结果校正：推理库复用系统镜像，推理移入 TaskPool，更新 EP/TCM 版本 |
 
 ## 概述
-YOLODetection是基于 OpenHarmony 的 AI 视觉检测应用，集成目标检测、人脸检测、人脸识别三大功能，使用 ONNX Runtime 在 RISC-V 设备上进行推理。
+
+YOLODetection 是基于 OpenHarmony 的 AI 视觉检测应用，提供目标检测、人脸检测、人脸识别三个功能，使用 ONNX Runtime + SpaceMIT Execution Provider 在 RISC-V 设备上推理。
+
+HAP 内只包含自己的 NAPI 模块 `libyolo_detect.so` 及 C++ 运行时（当前 HAP 为 `libc++_shared.so`），ONNX Runtime、SpaceMIT EP、TCM 支持库全部复用设备镜像中的 `/system/lib64`；模型随 HAP 打包在 `rawfile`，首次运行复制到应用沙箱后复用。推理在 TaskPool 线程中执行，不占用 UI 线程。
 
 ## 平台支持情况
 
@@ -38,8 +42,8 @@ YOLODetection是基于 OpenHarmony 的 AI 视觉检测应用，集成目标检�
 | UI 框架 | ArkUI (ArkTS / ETS) |
 | 原生层语言 | C++17 |
 | JS/Native 桥接 | NAPI (Node API) |
-| 推理引擎 | ONNX Runtime 1.x |
-| 硬件加速 | SpaceMIT Execution Provider |
+| 推理引擎 | ONNX Runtime 1.24.2（镜像提供） |
+| 硬件加速 | SpaceMIT EP 2.0.7 + TCM 3.0.2（镜像提供） |
 | 目标架构 | RISC-V 64-bit (riscv64) |
 | 构建工具 | Hvigor + CMake 3.5+ |
 | 模型格式 | ONNX (量化 int8) |
@@ -52,36 +56,33 @@ YOLODetection是基于 OpenHarmony 的 AI 视觉检测应用，集成目标检�
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   ArkUI 界面层 (ETS)                  │
-│  ┌──────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ HomePage │  │  DetectPage  │  │FaceRecognizePage│  │
-│  │  主菜单  │  │  目标检测页  │  │   人脸识别页   │  │
-│  └──────────┘  └──────────────┘  └────────────────┘  │
-│                ┌──────────────┐                       │
-│                │FaceDetectPage│                       │
-│                │  人脸检测页  │                       │
-│                └──────────────┘                       │
-├─────────────────────────────────────────────────────┤
-│                  NAPI 桥接层 (C++)                    │
-│            libyolo_detect.so (549 KB)                │
-│   detect() | detectFace() | recognizeFace()          │
-├─────────────────────────────────────────────────────┤
-│               推理引擎层                              │
-│  libonnxruntime.so.1 (34 MB)                         │
-│  libspacemit_ep.so   (7.8 MB) — RISC-V 加速          │
-├─────────────────────────────────────────────────────┤
-│               模型层 (rawfile)                        │
-│  yolov5nq.onnx (2.6MB) | yolov5nfaceq.onnx (1.9MB)  │
-│  arcfaceq.onnx (1.1MB)                               │
+│                ArkUI 页面层 (ETS)                     │
+│  HomePage | DetectPage | FaceDetectPage |            │
+│  FaceRecognizePage                                   │
+└───────────────────┬─────────────────────────────────┘
+                    │ taskpool.Task
+┌───────────────────▼─────────────────────────────────┐
+│           DetectTasks.ets（@Concurrent 任务）         │
+└───────────────────┬─────────────────────────────────┘
+                    │ NAPI
+┌───────────────────▼─────────────────────────────────┐
+│        libyolo_detect.so（随 HAP 打包）               │
+│  detectRGBA | detectFace | recognizeFace             │
+│  letterboxCHW | releaseModel                         │
+└───────────────────┬─────────────────────────────────┘
+                    │ 运行时从 /system/lib64 解析
+┌───────────────────▼─────────────────────────────────┐
+│  libonnxruntime.so.1 + libspacemit_ep.so.2           │
+│  libspine_tcm.so.3（系统镜像提供，不随 HAP 打包）     │
 └─────────────────────────────────────────────────────┘
 ```
 
 ### 模块说明
 
-- **ArkUI 界面层**：负责图像加载、预处理、结果可视化，用 ETS 编写
-- **NAPI 桥接层**：`yolo_detect.cpp` 实现 C++ 推理逻辑，通过 NAPI 暴露给 ETS 调用
-- **推理引擎层**：ONNX Runtime 负责模型加载与推理，SpaceMIT EP 提供 RISC-V 硬件加速
-- **模型层**：三个量化 ONNX 模型，存放于 `rawfile`，首次运行时复制到沙箱
+- **ArkUI 页面层**：加载图片、预处理、结果可视化。
+- **TaskPool 任务层**：`DetectTasks.ets` 以 `@Concurrent` 任务调用原生接口，避免同步推理阻塞 UI 线程。
+- **NAPI 层**：`yolo_detect.cpp` 负责模型加载、前后处理与 NMS，同一时刻只保留一个 ORT 会话。
+- **推理引擎层**：ONNX Runtime 与 SpaceMIT EP 由系统镜像提供，HAP 不包含这两个库。
 
 ---
 
@@ -90,162 +91,90 @@ YOLODetection是基于 OpenHarmony 的 AI 视觉检测应用，集成目标检�
 ```
 yolo_detection/
 ├── AppScope/                        # 应用级资源
-│   ├── app.json5                    # 包名、版本、图标
-│   └── resources/base/element/
-│       └── string.json              # 应用名称字符串
-├── entry/                           # 主模块
-│   ├── build-profile.json5          # 构建配置（启用 native C++）
-│   ├── oh-package.json5             # 包元数据与测试依赖
-│   ├── libs/riscv64/                # 预编译 .so 库
-│   │   ├── libonnxruntime.so.1      # ONNX Runtime (34 MB)
-│   │   ├── libspacemit_ep.so        # SpaceMIT 执行提供器 (7.8 MB)
-│   │   ├── libstdc++.so.6           # C++ 标准库 (17 MB)
-│   │   ├── libgcc_s.so.1            # GCC 运行时 (786 KB)
-│   │   ├── libatomic.so.1           # 原子操作库 (106 KB)
-│   │   └── libyolo_detect.so        # 本项目编译产物 (549 KB)
+├── entry/
+│   ├── libs/riscv64/                # 构建输出，按 ABI 打包
+│   │   ├── libyolo_detect.so        # 本项目 NAPI 产物
+│   │   └── libc++_shared.so         # C++ 运行时（随 HAP 打包）
+│   ├── link_libs/riscv64/           # 仅链接期使用，不打包
+│   │   ├── libonnxruntime.so(.1)
+│   │   ├── libspacemit_ep.so(.2)
+│   │   └── libspine_tcm.so
 │   └── src/main/
-│       ├── cpp/                     # C++ 原生代码
-│       │   ├── CMakeLists.txt       # CMake 构建脚本
-│       │   ├── yolo_detect.cpp      # 核心推理实现 (1006 行)
-│       │   ├── onnxruntime_*.h      # ONNX Runtime 头文件
-│       │   ├── spacemit_ort_env.h   # SpaceMIT 环境头文件
+│       ├── cpp/
+│       │   ├── CMakeLists.txt
+│       │   ├── yolo_detect.cpp      # 推理与后处理
+│       │   ├── onnxruntime_*.h      # ORT 头文件
+│       │   ├── spacemit_ort_env.h
 │       │   └── types/libyolo_detect/
-│       │       └── index.d.ts       # TypeScript 类型声明
-│       ├── ets/                     # ArkTS UI 代码
-│       │   ├── pages/
-│       │   │   ├── HomePage.ets         # 主菜单
-│       │   │   ├── DetectPage.ets       # 目标检测
-│       │   │   ├── FaceDetectPage.ets   # 人脸检测
-│       │   │   └── FaceRecognizePage.ets# 人脸识别
+│       │       └── index.d.ts       # TS 类型声明
+│       ├── ets/
 │       │   ├── detect/
-│       │   │   └── CocoClasses.ets      # 80 个 COCO 类别名
+│       │   │   ├── CocoClasses.ets  # 80 个 COCO 类别
+│       │   │   └── DetectTasks.ets  # TaskPool 并发任务
+│       │   ├── pages/
+│       │   │   ├── HomePage.ets
+│       │   │   ├── DetectPage.ets
+│       │   │   ├── FaceDetectPage.ets
+│       │   │   └── FaceRecognizePage.ets
 │       │   └── entryability/
-│       │       └── EntryAbility.ets     # 应用入口
-│       └── resources/
-│           ├── rawfile/                 # 模型与测试图片
-│           │   ├── yolov5nq.onnx        # 目标检测模型 (2.6 MB)
-│           │   ├── yolov5nfaceq.onnx    # 人脸检测模型 (1.9 MB)
-│           │   ├── arcfaceq.onnx        # 人脸识别模型 (1.1 MB)
-│           │   ├── people.jpg           # 测试场景图 (157 KB)
-│           │   └── head.jpg             # 查询人脸图 (2.9 KB)
-│           └── base/
-│               ├── element/
-│               │   ├── color.json       # 亮色主题颜色
-│               │   └── string.json      # UI 字符串
-│               └── profile/
-│                   └── main_pages.json  # 页面路由配置
-├── build-profile.json5              # 根构建配置（SDK 版本）
-├── hvigorfile.ts                    # 根构建脚本
-└── oh-package.json5                 # 根包配置
+│       └── resources/rawfile/       # 模型与测试图片
+│           ├── yolov5nq.onnx        # 目标检测 (2.6 MB)
+│           ├── yolov5nfaceq.onnx    # 人脸检测 (1.9 MB)
+│           ├── arcfaceq.onnx        # 人脸识别 (1.1 MB)
+│           ├── people.jpg
+│           └── head.jpg
+├── build-profile.json5
+└── oh-package.json5
 ```
 
 ---
 
 ## 数据流程图
 
-### 目标检测流程
+### 目标检测
 
 ```
 people.jpg (rawfile)
-        │
+        │ 首次运行时复制到沙箱（按文件大小判断，已存在则复用）
         ▼
-  复制到沙箱目录
-        │
+解码为 PixelMap（RGBA_8888）→ scale 到 640×640
         ▼
-  解码为 PixelMap (RGBA_8888)
-        │
+detectRGBA(modelPath, rgba, {w, h})   ← C++ 内完成 RGBA→CHW、归一化
         ▼
-  缩放至 640×640
-        │
+ONNX 推理（yolov5nq.onnx），输出 [1, 25200, 85]
         ▼
-  读取像素 → Uint8Array
-        │
+Sigmoid + 置信度过滤（> 0.25）→ NMS（IoU > 0.45）
         ▼
-  RGBA uint8 → Float32 CHW，归一化 [0, 1]
-        │
-        ▼
-  调用 native detect(modelPath, buffer, {w, h})
-        │
-        ▼
-  ONNX 推理 (yolov5nq.onnx)
-  输出形状: [1, 25200, 85]
-        │
-        ▼
-  Sigmoid 激活 + 置信度过滤 (>0.25)
-        │
-        ▼
-  NMS 去重 (IoU > 0.45)
-        │
-        ▼
-  坐标映射回原图尺寸
-        │
-        ▼
-  返回 [{x1,y1,x2,y2, confidence, classId}, ...]
-        │
-        ▼
-  在原图上绘制彩色检测框 + 类别标签
-        │
-        ▼
-  显示结果图 + 检测列表
+坐标映射回原图 → 绘制检测框与类别
 ```
 
-### 人脸检测流程
+### 人脸检测
 
 ```
-people.jpg
-        │
+people.jpg → letterbox 到 640×640（保持宽高比，灰色填充 114）
         ▼
-  Letterbox 预处理
-  （保持宽高比，灰色填充至 640×640，填充值 114）
-        │
+detectFace(modelPath, CHW buffer, {scale, padX, padY})
         ▼
-  Float32 CHW，归一化 [0, 1]
-        │
+解码 3 个检测头（stride 8 / 16 / 32）+ Anchor + Sigmoid + NMS
         ▼
-  调用 native detectFace(modelPath, buffer, {w,h,scale,padX,padY})
-        │
-        ▼
-  ONNX 推理 (yolov5nfaceq.onnx)
-  解码 3 个检测头 (stride 8 / 16 / 32)
-        │
-        ▼
-  Anchor 解码 + Sigmoid + NMS
-        │
-        ▼
-  坐标反变换（去除 letterbox 偏移与缩放）
-        │
-        ▼
-  返回人脸检测框列表
+去除 letterbox 偏移与缩放 → 人脸框列表
 ```
 
-### 人脸识别流程
+### 人脸识别
 
 ```
-head.jpg (查询人脸)          people.jpg (场景图)
-        │                           │
-        ▼                           ▼
-  人脸检测 (yolov5nfaceq)    人脸检测 (yolov5nfaceq)
-                                    │
-                                    ▼
-                             裁剪每张人脸至 112×112
-                             （双线性插值采样）
-                             归一化至 [-1, 1]
-        │                           │
-        └──────────┬────────────────┘
-                   ▼
-  调用 native recognizeFace(arcfaceModelPath, queryBuf, [candidateBufs])
-                   │
-                   ▼
-  ArcFace 推理 (arcfaceq.onnx)
-  提取 512 维人脸嵌入向量
-                   │
-                   ▼
-  计算余弦相似度 (query vs. 每个候选)
-                   │
-                   ▼
-  相似度 ≥ 0.5 → 绿框（匹配）
-  相似度 < 0.5 → 红框（不匹配）
+head.jpg / people.jpg
+        ▼
+人脸检测 → 裁剪 112×112 → 归一化到 [-1, 1]
+        ▼
+recognizeFace(arcfaceModelPath, query, candidates)
+        ▼
+ArcFace 提取 512 维特征 → 计算余弦相似度
+        ▼
+相似度 ≥ 0.5 判为同一人（绿框），否则红框
 ```
+
+> 原生层对同一模型路径复用已缓存的 ORT 会话；页面隐藏时调用 `releaseModel()` 释放会话，保证 SpaceMIT EP 在进程内同一时刻只有一个 provider。
 
 ---
 
@@ -258,88 +187,64 @@ head.jpg (查询人脸)          people.jpg (场景图)
 | DevEco Studio | 5.0+ |
 | OpenHarmony SDK | API 12 |
 | CMake | 3.5+ |
-| Node.js | 16+ |
-| hvigorw | 随项目自带 |
+| 目标 ABI | riscv64 |
 
 ### 构建步骤
-
-**1. 克隆项目**
 
 ```bash
 git clone https://gitee.com/spacemit-openharmony/yolo_detection.git
 cd yolo_detection
+
+# 配置签名后构建 release HAP
+node "<DevEco Studio 安装路径>/tools/hvigor/bin/hvigorw.js" \
+  --mode module -p module=entry@default -p product=default \
+  -p buildMode=release assembleHap --no-daemon
 ```
 
-**2. 用 DevEco Studio 打开项目**
-
-File → Open → 选择项目根目录，等待 Hvigor 同步依赖。
-
-**3. 配置签名**
-
-在 `build-profile.json5` 的 `signingConfigs` 中填入你的签名信息，或在 DevEco Studio 中通过 `File → Project Structure → Signing Configs` 自动生成调试签名。
-
-**4. 命令行构建**
+`entry/link_libs/riscv64/` 只用于链接期符号解析，不会打进 HAP；运行时由动态链接器从 `/system/lib64`（应用可通过 `/system/lib64/ndk` 访问）解析同名库。若该目录缺失，可从设备拉取：
 
 ```bash
-# 构建 debug HAP
-./hvigorw assembleHap --mode module -p module=entry@default -p buildMode=debug
-
-# 构建 release HAP（需配置签名）
-./hvigorw assembleHap --mode module -p module=entry@default -p buildMode=release
+hdc file recv /system/lib64/libonnxruntime.so.1 entry/link_libs/riscv64/
+hdc file recv /system/lib64/libspacemit_ep.so.2 entry/link_libs/riscv64/
 ```
 
-**5. 仅编译 C++ 原生库**
-
-CMake 配置由 Hvigor 自动调用，也可手动验证：
-
-```bash
-cd entry/src/main/cpp
-cmake -DCMAKE_TOOLCHAIN_FILE=<ohos_sdk>/native/build/cmake/ohos.toolchain.cmake \
-      -DOHOS_ARCH=riscv64 \
-      -B build
-cmake --build build
-```
-
-编译产物 `libyolo_detect.so` 会输出到 `entry/libs/riscv64/`。
-
-### 构建产物
+构建产物：
 
 ```
-entry/build/default/outputs/default/
-└── entry-default-signed.hap    # 可安装的 HAP 包
+entry/build/default/outputs/default/entry-default-signed.hap
 ```
 
 ---
 
 ## 部署与运行
 
-**安装到设备**
-
 ```bash
-hdc install entry-default-signed.hap
-```
+# 安装（覆盖安装）
+hdc install -r entry-default-signed.hap
 
-**启动应用**
-
-```bash
+# 启动
 hdc shell aa start -a EntryAbility -b com.example.yolo_detection
-```
 
-**查看日志**
-
-```bash
-# 查看应用日志（TAG: YoloDetect）
+# 查看日志
 hdc shell hilog -T YoloDetect
 
-# 查看所有日志
-hdc shell hilog | grep yolo
-```
-
-**卸载**
-
-```bash
+# 卸载
 hdc uninstall com.example.yolo_detection
 ```
+
+无需向设备推送推理库或模型：推理库来自镜像，模型随 HAP 安装后在首次运行时复制到应用沙箱（`filesDir`）。
+
+### 性能参考（K3 Pico，OpenHarmony 6.1.0.35 / API 23）
+
+| 项目 | 结果 |
+|------|------|
+| 推理库 | `/system/lib64` 中 ORT 1.24.2+spacemit.a1、EP 2.0.7、spine_tcm 3.0.2 |
+| 目标检测 | `people.jpg`，5 个目标，51 ms |
+| 人脸检测 | 4 张人脸，40 ms |
+| 人脸识别 | 4 张人脸中匹配 1 张，4 ms |
+| HAP 内库 | `libyolo_detect.so` + `libc++_shared.so` |
+
+> 仓库 `entry/libs/riscv64/` 里可能还留有工具链附带的运行时文件；以构建产物实际打包内容为准，当前 HAP 内为 `libc++_shared.so`。
 
 ---
 
@@ -347,82 +252,34 @@ hdc uninstall com.example.yolo_detection
 
 ### 替换检测模型
 
-1. 将新的 `.onnx` 模型放入 `entry/src/main/resources/rawfile/`
-2. 修改对应页面中的模型文件名，例如 `DetectPage.ets`：
-   ```typescript
-   // 修改这一行
-   const modelFileName = 'your_new_model.onnx';
-   ```
-3. 如果模型输入尺寸不是 640×640，同步修改预处理中的缩放逻辑和 `yolo_detect.cpp` 中的 `INPUT_SIZE` 常量：
-   ```cpp
-   static const int INPUT_SIZE = 640; // 改为新尺寸
-   ```
+1. 将新的 `.onnx` 放入 `entry/src/main/resources/rawfile/`。
+2. 修改页面中的模型文件名（如 `DetectPage.ets` 的 `copyAssetToSandbox('yolov5nq.onnx')`）。
+3. 输入尺寸不是 640×640 时，同步修改 `DetectPage.ets` 的 `INPUT_SIZE` 与 `yolo_detect.cpp` 的 `INPUT_W` / `INPUT_H`。
 
-### 修改置信度阈值
-
-在 `yolo_detect.cpp` 中修改：
+### 调整阈值
 
 ```cpp
-static const float CONF_THRESHOLD = 0.25f;  // 置信度阈值
-static const float NMS_THRESHOLD  = 0.45f;  // NMS IoU 阈值
+static const float CONF_THRESH = 0.25f;  // 置信度阈值
+static const float NMS_THRESH  = 0.45f;  // NMS IoU 阈值
 ```
 
-人脸识别匹配阈值在 `FaceRecognizePage.ets` 中修改：
+人脸匹配阈值在 `FaceRecognizePage.ets`：
 
 ```typescript
-const SIMILARITY_THRESHOLD = 0.5; // 余弦相似度阈值
+const SIMILARITY_THRESHOLD = 0.5;
 ```
 
-### 添加新的检测类别
+### 自定义类别
 
-如果使用自定义模型（非 COCO 80 类），修改 `CocoClasses.ets`：
+修改 `CocoClasses.ets` 的类别数组，并同步 `yolo_detect.cpp` 中的 `NUM_CLASSES`（输出维度为 `5 + NUM_CLASSES`）。
 
-```typescript
-export const CLASS_NAMES: string[] = [
-  'class_a', 'class_b', 'class_c', // 替换为你的类别
-];
-```
+### 更换测试图片
 
-同时修改 `yolo_detect.cpp` 中的类别数量：
-
-```cpp
-static const int NUM_CLASSES = 80; // 改为实际类别数
-// 输出维度也需对应修改: 5 + NUM_CLASSES
-```
-
-### 替换测试图片
-
-将新图片放入 `entry/src/main/resources/rawfile/`，在对应页面修改文件名：
-
-```typescript
-// DetectPage.ets
-const imageFileName = 'your_image.jpg';
-```
-
-### 增加新功能页面
-
-1. 在 `entry/src/main/ets/pages/` 新建 `NewPage.ets`
-2. 在 `entry/src/main/resources/base/profile/main_pages.json` 注册路由：
-   ```json
-   {
-     "src": ["pages/HomePage", "pages/DetectPage", "pages/NewPage"]
-   }
-   ```
-3. 在 `HomePage.ets` 添加导航按钮：
-   ```typescript
-   Button('新功能')
-     .onClick(() => router.pushUrl({ url: 'pages/NewPage' }))
-   ```
+替换 `rawfile` 中的图片，并修改页面对应的 `copyAssetToSandbox(...)` 文件名。
 
 ### 适配其他架构
 
-当前预编译库仅支持 `riscv64`。若需支持 `arm64-v8a`：
-
-1. 将对应架构的 `.so` 文件放入 `entry/libs/arm64-v8a/`
-2. 在 `entry/build-profile.json5` 的 `abiFilters` 中添加目标架构：
-   ```json
-   "abiFilters": ["riscv64", "arm64-v8a"]
-   ```
+当前仅有 riscv64 预编译产物与镜像库。其他架构需替换 `link_libs` 下的 ORT/EP，并在 `build-profile.json5` 的 `abiFilters` 中增加目标架构；SpaceMIT EP 仅支持 RISC-V。
 
 ---
 
@@ -430,67 +287,43 @@ const imageFileName = 'your_image.jpg';
 
 | 参数 | 位置 | 默认值 | 说明 |
 |------|------|--------|------|
-| `INPUT_SIZE` | `yolo_detect.cpp` | 640 | 模型输入图像尺寸 |
-| `CONF_THRESHOLD` | `yolo_detect.cpp` | 0.25 | 目标检测置信度阈值 |
-| `NMS_THRESHOLD` | `yolo_detect.cpp` | 0.45 | NMS IoU 阈值 |
-| `NUM_CLASSES` | `yolo_detect.cpp` | 80 | COCO 类别数量 |
-| `ARCFACE_SIZE` | `FaceRecognizePage.ets` | 112 | ArcFace 输入尺寸 |
-| `SIMILARITY_THRESHOLD` | `FaceRecognizePage.ets` | 0.5 | 人脸匹配相似度阈值 |
-| `intraOpNumThreads` | `yolo_detect.cpp` | 4 | ONNX Runtime 推理线程数 |
-| letterbox 填充值 | `FaceDetectPage.ets` | 114 | 灰色填充像素值 |
+| `INPUT_W` / `INPUT_H` | `yolo_detect.cpp` | 640 | 检测模型输入尺寸 |
+| `CONF_THRESH` | `yolo_detect.cpp` | 0.25 | 目标检测置信度阈值 |
+| `NMS_THRESH` | `yolo_detect.cpp` | 0.45 | NMS IoU 阈值 |
+| `NUM_CLASSES` | `yolo_detect.cpp` | 80 | COCO 类别数 |
+| `FACE_STRIDES` | `yolo_detect.cpp` | 8/16/32 | 人脸检测头步长 |
+| `ARCFACE_W/H` | `yolo_detect.cpp` | 112 | ArcFace 输入尺寸 |
+| `SIMILARITY_THRESHOLD` | `FaceRecognizePage.ets` | 0.5 | 人脸匹配余弦相似度阈值 |
+| letterbox 填充值 | 页面预处理 | 114 | 灰色填充像素值 |
 
 ---
 
 ## FAQ
 
-**Q: 安装后点击检测没有反应？**
+**Q: 点击检测后界面卡死？**
 
-检查日志中是否有模型加载失败的错误。模型首次运行时会从 rawfile 复制到沙箱，确保 `rawfile` 目录下的 `.onnx` 文件存在且完整。
+旧版本在 UI 线程同步推理会触发 `THREAD_BLOCK_3S/6S`。最新代码已将推理移入 TaskPool，并复用 ORT 会话，请确认使用最新代码。
+
+**Q: 提示模型加载失败？**
+
+确认 `rawfile` 中三个 `.onnx` 文件完整；首次运行时模型会复制到 `filesDir`，如之前复制过损坏文件，可清除应用数据或删除沙箱中的同名文件后重试。
 
 ```bash
 hdc shell hilog -T YoloDetect | grep -i error
 ```
 
-**Q: 推理速度很慢？**
+**Q: 推理速度明显变慢？**
 
-- 确认 `libspacemit_ep.so` 已正确加载（日志中会有 `SpaceMIT EP loaded` 提示）
-- 检查 `intraOpNumThreads` 是否设置合理（默认 4）
-- 量化模型（`q.onnx`）比浮点模型快 2-4 倍，确认使用的是量化版本
+确认镜像中存在 `/system/lib64/libonnxruntime.so.1`、`libspacemit_ep.so.2`、`libspine_tcm.so.3`。缺少 EP 时会回退到 CPU，耗时显著增加；EP 路径下目标检测约 51 ms。
 
 **Q: 检测框坐标偏移？**
 
-人脸检测使用了 letterbox 预处理，坐标需要反变换。确认传入 native 函数的 `scale`、`padX`、`padY` 参数与预处理时一致。
+人脸检测使用 letterbox 预处理，坐标需要反变换。确认传入 native 的 `scale`、`padX`、`padY` 与预处理一致。
 
-**Q: 如何更换为自己训练的 YOLOv5 模型？**
+**Q: 如何换成自己训练的 YOLOv5 模型？**
 
-1. 导出为 ONNX 格式：`python export.py --weights best.pt --include onnx`
-2. 可选：使用 `onnxruntime` 量化工具进行 int8 量化
-3. 替换 `rawfile` 中对应的 `.onnx` 文件
-4. 如果类别数不是 80，修改 `NUM_CLASSES` 和 `CocoClasses.ets`
+导出 ONNX（可选 int8 量化）→ 替换 `rawfile` 中的模型 → 修改页面文件名；类别数不是 80 时同步修改 `NUM_CLASSES` 与 `CocoClasses.ets`。
 
-**Q: 编译时提示找不到 ONNX Runtime 头文件？**
+**Q: 能否同时加载多个模型？**
 
-头文件已包含在 `entry/src/main/cpp/` 目录下，确认 `CMakeLists.txt` 中的 `include_directories` 路径正确：
-
-```cmake
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-```
-
-**Q: 如何在非 RISC-V 设备上运行？**
-
-需要替换 `entry/libs/` 下的所有 `.so` 为目标架构版本（arm64-v8a 等），并修改 `build-profile.json5` 中的 `abiFilters`。SpaceMIT EP 仅支持 RISC-V，其他架构需改用 CPU EP 或其他执行提供器。
-
-**Q: 日志中出现 `YOLO_LOG_DOMAIN exceeding threshold`？**
-
-这是 OpenHarmony hilog 的域值限制问题，已在 commit `50951e4` 中修复，确保使用最新代码。
-
-**Q: 人脸识别误识别率高？**
-
-调高 `SIMILARITY_THRESHOLD`（如从 0.5 改为 0.6），可以减少误匹配，但也会增加漏检。根据实际场景调整。
-
-**Q: 如何添加摄像头实时检测？**
-
-当前版本仅支持静态图片检测。接入摄像头需要：
-1. 使用 OpenHarmony Camera Kit 获取帧数据
-2. 将每帧转换为 PixelMap 后走相同的预处理流程
-3. 注意控制推理频率（建议每隔 2-3 帧推理一次）以保证流畅度
+不能。SpaceMIT EP 在进程内只允许一个 provider，原生层同一时刻只保留一个会话；页面隐藏时会释放模型，切页后再加载新模型。

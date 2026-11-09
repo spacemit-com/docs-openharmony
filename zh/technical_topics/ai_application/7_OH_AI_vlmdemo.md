@@ -5,7 +5,7 @@
  * 
  * @Author: David(qiang.fu@spacemit.com)
  * @Date: 2026-07-09 11:00:00
- * @LastEditTime: 2026-07-09 11:00:00
+ * @LastEditTime: 2026-11-07 10:00:00
  * @FilePath: \doc\docs-openharmony\zh\ai_application\7_OH_AI_vlmdemo.md
  * @Description: 
 -->
@@ -15,33 +15,37 @@ sidebar_position: 7
 
 ## 修订记录
 
-| 修订版本 | 修订日期   | 修订说明       |
-|----------|------------|-------------|
-| 001      | 2026-07-09 | 初始版本      |
+| 修订版本 | 修订日期   | 修订说明 |
+|----------|------------|----------|
+| 001      | 2026-07-09 | 初始版本 |
+| 002      | 2026-11-07 | 对齐最新代码并依据 K3 平台结果校正：新增模型中心，更新模型大小、加载与生成性能 |
 
 ## 概述
 
-vlmdemo 是基于 OpenHarmony 的多模态视觉问答应用，使用 SpaceMIT SMT（SpaceMIT Multi-modal Tensor）加速后端，在设备端直接运行 llama-server VLM 服务，无需联网即可完成图文对话推理。应用启动时自动拉起 SMT llama-server（端口 8071），内置测试图片，支持流式视觉问答。
+vlmdemo 是基于 OpenHarmony 的多模态视觉问答应用，使用 SpaceMIT SMT 加速后端，在设备端运行 `llama-server` VLM 服务，无需联网即可完成图文对话推理。
+
+已下载并选中模型时，应用启动会自动拉起镜像自带的 `llama-server`（端口 8071）；模型由内置「模型中心」从 `archive.spacemit.com` 下载并解压到应用沙箱，支持 FastVLM 与 Qwen3.5-VL 多档模型，可运行时切换。左侧内置测试图片，提问时自动以 base64 随请求发送。
 
 ## 平台支持情况
 
 |      平台 & 系统       |       是否支持     |
 |-----------------------|-----------------------|
 | K1 OpenHarmony5.0     | ❌ 不支持             |
-| K1 OpenHarmony6.1     | ❌ 不支持             |
-| K3 OpenHarmony6.1     | ✅ 支持               |
+| K1 OpenHarmony6.1    | ❌ 不支持             |
+| K3 OpenHarmony6.1     | ✅ 支持              |
 
 ## 技术栈
 
 | 层次 | 技术 |
 |------|------|
-| 开发语言 | ArkTS（TypeScript 超集，OpenHarmony 专用） |
+| 开发语言 | ArkTS |
 | UI 框架 | ArkUI（声明式 UI） |
 | 平台 SDK | OpenHarmony SDK v12 |
 | 构建工具 | Hvigor + DevEco Studio |
-| 推理后端 | llama.cpp llama-server（设备本地进程，SMT 视觉后端） |
-| 通信协议 | HTTP / OpenAI 兼容 API（`@ohos.net.http`，本地 127.0.0.1:8071） |
-| 视觉加速 | SpaceMIT SMT（libspacemit_ep.so + libonnxruntime.so.1） |
+| 推理后端 | llama.cpp `llama-server`（镜像自带，版本 b10056，SMT 视觉后端） |
+| 通信协议 | HTTP / OpenAI 兼容 API（`@ohos.net.http`，`127.0.0.1:8071`） |
+| 视觉加速 | SpaceMIT SMT（`libspacemit_ep.so.2` 版本 2.0.7 + `libonnxruntime.so.1` 1.24.2，镜像提供） |
+| 模型管理 | 应用内下载 tar.gz、md5 校验、`tar -xzf` 解压、沙箱存储 |
 
 ---
 
@@ -50,22 +54,23 @@ vlmdemo 是基于 OpenHarmony 的多模态视觉问答应用，使用 SpaceMIT S
 ```
 vlmdemo/
 ├── AppScope/                        # 应用级资源与配置
-│   ├── app.json5                    # 包名、版本号
-│   └── resources/                   # 全局资源（图标等）
-├── entry/                           # 主模块（HAP）
-│   ├── src/main/ets/
-│   │   ├── entryability/
-│   │   │   └── EntryAbility.ets     # 应用入口，管理 llama-server 进程
-│   │   ├── pages/
-│   │   │   └── Index.ets            # 主界面（左图右聊布局）
-│   │   └── service/
-│   │       └── VlmService.ets       # 与 llama-server 通信的服务层（SSE 流式）
-│   └── src/main/resources/
-│       └── rawfile/
-│           └── default_image.jpg    # 内置测试图片
-├── hvigor/                          # 构建系统配置
-├── build-profile.json5              # 构建配置（签名、SDK 版本）
-└── oh-package.json5                 # 依赖声明
+├── entry/src/main/ets/
+│   ├── entryability/
+│   │   └── EntryAbility.ets         # 启动：选模型、拉起 llama-server
+│   ├── pages/
+│   │   ├── Index.ets                # 左图右聊界面
+│   │   └── ModelCenter.ets          # 模型中心（下载/使用/删除/启停服务）
+│   ├── service/
+│   │   ├── VlmLauncher.ets          # llama-server 启停与健康检查
+│   │   ├── VlmService.ets           # SSE 流式视觉问答
+│   │   ├── ModelCatalog.ets         # VLM 模型清单
+│   │   ├── ModelDownloader.ets      # 下载 + 校验 + 解压
+│   │   └── ModelStore.ets           # 目录布局、选中项、旧版识别
+│   ├── model/ChatMessage.ets
+│   └── src/main/resources/rawfile/
+│       └── default_image.jpg        # 内置测试图片
+├── build-profile.json5
+└── oh-package.json5
 ```
 
 ---
@@ -76,28 +81,25 @@ vlmdemo/
 ┌──────────────────────────────────────────────────┐
 │                  OpenHarmony 设备                 │
 │                                                  │
-│  ┌───────────────────────────────────────────┐   │
-│  │               vlmdemo HAP                 │   │
-│  │                                           │   │
-│  │  ┌─────────────┐     ┌─────────────────┐  │   │
-│  │  │ EntryAbility │     │   Index.ets     │  │   │
-│  │  │  (生命周期)  │     │ (左图右聊 UI)  │  │   │
-│  │  └──────┬───────┘     └────────┬────────┘  │   │
-│  │         │ 启动/停止进程         │ 调用      │   │
-│  │         │                      ▼           │   │
-│  │         │          ┌───────────────────┐   │   │
-│  │         │          │    VlmService     │   │   │
-│  │         │          │  (HTTP SSE 流式)  │   │   │
-│  │         │          └─────────┬─────────┘   │   │
-│  └─────────│────────────────────│─────────────┘   │
-│            │                    │ @ohos.net.http   │
-│            ▼                    ▼                  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │   llama-server（本地子进程，SMT 后端）        │  │
-│  │   127.0.0.1:8071                             │  │
-│  │   模型: /etc/vlm/model.gguf                  │  │
-│  │   视觉: /etc/vlm/fastvlm_vision.f16.onnx    │  │
-│  └──────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────┐  │
+│  │                vlmdemo HAP                 │  │
+│  │  ┌───────────┐      ┌──────────────────┐   │  │
+│  │  │ Index.ets │      │ ModelCenter.ets  │   │  │
+│  │  │ 左图右聊  │      │ 模型下载/切换     │   │  │
+│  │  └─────┬─────┘      └────────┬─────────┘   │  │
+│  │        │                     │             │  │
+│  │  ┌─────▼──────┐      ┌───────▼──────────┐  │  │
+│  │  │ VlmService │      │ ModelDownloader  │  │  │
+│  │  │ HTTP + SSE │      │ ModelStore       │  │  │
+│  │  └─────┬──────┘      └───────┬──────────┘  │  │
+│  └────────│─────────────────────│─────────────┘  │
+│           │ 127.0.0.1:8071      │ 解压到沙箱
+│           ▼                     ▼                │
+│  ┌────────────────────┐  ┌────────────────────┐  │
+│  │ llama-server（镜像）│  │ filesDir/models/   │  │
+│  │ SMT 视觉后端        │  │ <id>/config.json   │  │
+│  │                    │  │ <id>/*.gguf/*.onnx │  │
+│  └────────────────────┘  └────────────────────┘  │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -105,52 +107,30 @@ vlmdemo/
 
 ## 推理流程
 
-### 应用启动流程
+### 应用启动
 
-1. `onCreate` 检查 `/etc/vlm/model.gguf` 是否存在，缺失时在界面提示错误
-2. `pkill -9 llama-server`（清理旧进程，等待 500ms）
-3. 设置 `TMPDIR` / `TMP` / `TEMP` 环境变量指向应用可写目录（`context.tempDir`）
-   > SMT 后端（libspacemit_ep.so）推理时需要写临时文件；libspine_tcm.so 硬编码使用 `/tmp/tcm_sync_standalone.shm`，故必须保证临时目录可写
-4. 延迟 1500ms 后启动 llama-server：
+1. 初始化 `ModelStore`，读取 `filesDir/selection.json` 中的选中模型。
+2. 未选择时，按清单顺序自动选中第一个已下载模型；没有可用模型则提示去模型中心。
+3. 选中模型目录完整（含 `config.json` 和至少一个 `.gguf`）时：
+   - 复用已在运行且健康检查通过的服务；
+   - 否则设置 `TMPDIR/TMP/TEMP` 为应用 `tempDir`，执行：
 
-   ```bash
-   export TMPDIR=<tempDir>; export TMP=<tempDir>; export TEMP=<tempDir>;
-   export PATH=/usr/bin:/bin:/system/bin;
-   mkdir -p <tempDir>; chmod 777 <tempDir>;
-   llama-server -m /etc/vlm/model.gguf \
-     --vision-backend smt --smt-config-dir /etc/vlm \
-     --host 127.0.0.1 --port 8071 \
-     -t 8 -tb 8 --reasoning off
-   ```
+```bash
+llama-server -m <models/<id>>/<目录内第一个 .gguf> \
+  --vision-backend smt --smt-config-dir <models/<id>> \
+  --host 127.0.0.1 --port 8071 -t 8 -tb 8 --reasoning off
+```
 
-5. 前端每秒轮询 `/health` 端点（最多 60 次），就绪（`{"status":"ok"}`）后解锁输入界面
-6. `onDestroy` 时发送 SIGTERM（signal 15）关闭 llama-server
+4. 每 2 s 轮询 `/health`，最长 90 s；就绪后解锁输入。
 
-### 视觉问答推理过程
+> SMT 后端推理需要写临时文件，`libspine_tcm.so.3` 还使用共享内存，因此必须保证 `tempDir` 可写；应用已自动处理，无需手工设置。
 
-每次用户发送消息时：
+### 视觉问答
 
-1. 从应用资源目录加载内置图片 `default_image.jpg`，转换为 base64 data URI
-2. 构造 OpenAI 兼容的多模态消息格式：
-
-   ```json
-   {
-     "messages": [
-       {
-         "role": "user",
-         "content": [
-           { "type": "image_url", "image_url": { "url": "data:image/jpeg;base64,..." } },
-           { "type": "text", "text": "用户输入的问题" }
-         ]
-       }
-     ],
-     "stream": true
-   }
-   ```
-
-3. 通过 `@ohos.net.http` 发送 POST 请求到 `http://127.0.0.1:8071/v1/chat/completions`
-4. 解析 SSE 流式响应（`data: {...}` 格式），逐 token 追加到对话气泡
-5. 收到 `finish_reason: stop` 或 `[DONE]` 后结束流式接收
+1. 从 `rawfile` 加载内置图片，转换为 `data:image/jpeg;base64,...`。
+2. 构造 OpenAI 多模态消息：`image_url` 内容块 + `text` 内容块。
+3. `@ohos.net.http` 流式 POST 到 `/v1/chat/completions`（`stream:true`，`temperature:0.7`，`max_tokens:1024`）。
+4. 解析 SSE，逐 token 追加到对话气泡。
 
 ---
 
@@ -163,203 +143,82 @@ cd vlmDemo
 
 ---
 
-## 模型文件获取
+## 模型获取与管理
 
-vlmdemo 使用 FastVLM 0.5B 多模态模型（文件位于仓库 `fastvlm-mm-0.5b-q4_1/` 目录）：
+模型由应用内「模型中心」下载，无需 PC 下载后再推送。
 
-| 文件 | 大小 | 说明 |
-|------|------|------|
-| `fastvlm-text-0.5B-Q4_1.gguf` | 约 876 MB | 文本解码器（Q4_1 量化） |
-| `fastvlm_vision.f16.onnx` | 约 241 MB | SMT 视觉编码器（FP16 ONNX） |
-| `config.json` | 248 B | 多模态配置（指定 vision/text 模型路径） |
+| 模型 | 参数量 | 包大小（约） | 特点 |
+|------|--------|-------------|------|
+| FastVLM 0.5B | 0.5B | 766 MB | 文本 gguf + ONNX 视觉编码器，体积最小、加载最快 |
+| Qwen3.5-VL 0.8B | 0.8B | 932 MB | 推荐首选，典型约 13 秒就绪 |
+| Qwen3.5-VL 2B | 2B | 2.59 GB | 质量更好，解包需要更多空间 |
+| Qwen3.5-VL 4B | 4B | 3.93 GB | 效果最强，解包峰值约需 8 GB 空闲空间 |
 
-`config.json` 内容示例：
-
-```json
-{
-  "architectures": ["LlavaQwen2ForCausalLM"],
-  "vision_model": { "model_path": "fastvlm_vision.f16.onnx" },
-  "text_model": { "model_path": "fastvlm-text-0.5B-Q4_1.gguf", "hidden_size": 896 }
-}
-```
+- 下载地址：`http://archive.spacemit.com/spacemit-ai/model_zoo/vlm/<模型>.tar.gz`（设备不信任该站点证书，统一走 HTTP）。
+- 流程：流式下载为 `.part` → md5 校验 → 改名为 `.tar.gz` → `tar -xzf` 解压到 `filesDir/models/<id>/` → 删除压缩包。
+- 包内 `config.json` 使用相对路径，解压后目录内文件不能改名或移动。
+- 选中项保存在 `filesDir/selection.json`；切换模型会停止旧服务并以新模型重启。
 
 ---
 
 ## 设备部署
 
-目标设备：搭载 SpaceMIT K3 SoC 的 RISC-V 开发板（如 K3 Pico ITX，X100 为 CPU 核心型号）。
+无需推送模型或推理库，安装 HAP 后首次进入「模型中心」下载模型即可。
 
-> 以下步骤均在 **SpaceMIT K3 Pico ITX** 真机（riscv64、内核 6.18.3、16 核、16 GB 内存）实测验证。
-
-### 1. 部署动态库与可执行文件
-
-以下文件来自编译产物 `device/soc/spacemit/common/hardware/`，需推送到设备系统分区。
+> 部分镜像预置的 vlmdemo 可能是旧版本（无「模型」入口）；若界面没有模型中心，请按最新源码构建 HAP 后安装。
 
 ```bash
-# 挂载系统分区为可写
-hdc shell "mount -o rw,remount /"
-
-# llama.cpp 动态库（带版本 SONAME）
-hdc file send libllama.so.0              /system/lib64/libllama.so.0
-hdc file send libggml.so.0               /system/lib64/libggml.so.0
-hdc file send libggml-base.so.0          /system/lib64/libggml-base.so.0
-hdc file send libggml-cpu.so.0           /system/lib64/libggml-cpu.so.0
-hdc file send libllama-common.so.0       /system/lib64/libllama-common.so.0
-hdc file send libmtmd.so.0               /system/lib64/libmtmd.so.0
-hdc file send libllama-server-impl.so    /system/lib64/libllama-server-impl.so
-
-# OnnxRuntime EP 及 TCM 支持库
-hdc file send libonnxruntime.so.1.24.2+spacemit.a1  /system/lib64/libonnxruntime.so.1
-hdc file send libspacemit_ep.so.2.0.4               /system/lib64/libspacemit_ep.so.2
-hdc file send libspine_tcm.so.0.2.0                 /system/lib64/libspine_tcm.so.0
-
-# 创建不带版本号的符号链接
-hdc shell "ln -sf /system/lib64/libonnxruntime.so.1  /system/lib64/libonnxruntime.so"
-hdc shell "ln -sf /system/lib64/libspacemit_ep.so.2  /system/lib64/libspacemit_ep.so"
-hdc shell "ln -sf /system/lib64/libspine_tcm.so.0    /system/lib64/libspine_tcm.so"
-
-# llama-server 启动器
-hdc file send llama-server /system/bin/llama-server
-hdc shell "chmod 755 /system/bin/llama-server"
-```
-
-> 实测说明：**K3 Pico ITX 镜像已预置上述全部库**（SONAME 实体 + 符号链接完整）与 `llama-server`，无需手动推送。若设备已烧录完整镜像，**可直接跳到步骤 3**，仅需推送模型文件。
-
-### 2. 设置 TCM 设备权限
-
-K3 SoC 的 TCM（Tightly Coupled Memory）设备节点默认权限为 660，SMT 后端需要 666：
-
-```bash
-hdc shell "chmod 666 /dev/tcm"
-
-# 验证（预期输出）：
-# crw-rw-rw- 1 root root 10, 260 /dev/tcm
-```
-
-> K3 Pico ITX 镜像已在 init 脚本中配置 `chmod 666 /dev/tcm`，重启后自动恢复。实测该节点已为 666，**可跳过此步骤**。
-
-### 3. 部署 VLM 模型文件
-
-```bash
-hdc shell "mkdir -p /etc/vlm"
-
-# 模型配置（248 B）
-hdc file send fastvlm-mm-0.5b-q4_1/config.json /etc/vlm/config.json
-
-# SMT 视觉编码器 ONNX（约 241 MB，实测约 10 秒）
-hdc file send fastvlm-mm-0.5b-q4_1/fastvlm_vision.f16.onnx /etc/vlm/fastvlm_vision.f16.onnx
-
-# 文本解码器（约 876 MB，实测约 34 秒）
-hdc file send fastvlm-mm-0.5b-q4_1/fastvlm-text-0.5B-Q4_1.gguf /etc/vlm/model.gguf
-
-# llmchat 共用路径硬链接（link count 变为 2）
-hdc shell "ln -f /etc/vlm/model.gguf /etc/model.gguf"
-```
-
-部署完成后验证（实测输出）：
-
-```text
-$ hdc shell "ls -lh /etc/vlm/; ls -lh /etc/model.gguf"
--rw-r--r-- 1 root root  248 config.json
--rw-r--r-- 1 root root 241M fastvlm_vision.f16.onnx
--rw-r--r-- 2 root root 876M model.gguf
--rw-r--r-- 2 root root 876M /etc/model.gguf        # link count=2，硬链接生效
-```
-
-### 4. 编译安装 HAP
-
-```bash
-# 构建（在 vlmdemo 项目根目录执行）
-node "<DevEco Studio 安装路径>/tools/hvigor/bin/hvigorw.js" \
-  --mode module -p module=entry@default -p product=default \
-  -p buildMode=release assembleHap --no-daemon
-
-# 安装到设备（需先卸载旧版本）
+# 安装
 hdc uninstall com.example.vlmdemo
-hdc install -r entry/build/default/outputs/default/entry-default-signed.hap
-```
+hdc install -r entry-default-signed.hap
 
-### 5. 启动验证
-
-```bash
-# 启动应用（llama-server 由应用自动拉起）
+# 启动（应用自动拉起 llama-server）
 hdc shell "aa start -b com.example.vlmdemo -a EntryAbility"
 
-# 等待约 15-20 秒模型加载完成，确认服务就绪
+# 等待约 6~13 秒（模型不同），确认服务就绪
 hdc shell "curl -s http://127.0.0.1:8071/health"
-# 预期返回：{"status":"ok"}
+# 预期：{"status":"ok"}
 
-# 查看应用日志
-hdc shell "hilog | grep -E 'VlmService|EntryAbility'"
+# 查看日志
+hdc shell "hilog | grep -E 'VlmLauncher|VlmService|ModelCenter'"
+```
+
+### TCM 权限
+
+SMT 后端需要 `/dev/tcm` 为 666。K3 Pico ITX 镜像已由 init 脚本配置，重启后自动恢复；若推理崩溃或卡死，检查并手工修正：
+
+```bash
+hdc shell "ls -l /dev/tcm"          # 预期 crw-rw-rw-
+hdc shell "chmod 666 /dev/tcm"
+hdc shell "spacemit-tcm-smi"        # 查看占用
+hdc shell "spacemit-tcm-smi -c"     # 清理残留占用
 ```
 
 ### 故障排查
 
 | 现象 | 原因 | 处理 |
 |------|------|------|
-| 界面提示"模型文件不存在" | `/etc/vlm/model.gguf` 未部署 | 执行步骤 3 |
-| 状态栏一直显示"加载中" | llama-server 启动失败 | `hdc shell "hilog \| grep EntryAbility"` 查看错误 |
-| 推理崩溃 / SIGBUS / 卡死 | `/dev/tcm` 权限不足 | `hdc shell "chmod 666 /dev/tcm"` |
-| SMT 报 ONNX 错误 | `libspacemit_ep.so` 或 `libonnxruntime.so` 缺失/版本不符 | 检查步骤 1 的库是否完整 |
-| 应用闪退 / 无日志 | TMPDIR 不可写 | 代码已自动设置，检查 `context.tempDir` 权限 |
-| TCM 资源占满（卡死） | 残留进程占用 TCM 块 | `hdc shell "spacemit-tcm-smi -c"` 强制释放后重试 |
+| 提示「尚未下载模型」 | 沙箱内没有可用模型 | 到模型中心下载并点「使用」 |
+| 状态一直「加载中」 | llama-server 启动失败 | `hilog \| grep VlmLauncher` 查看命令与错误 |
+| 推理崩溃 / SIGBUS | `/dev/tcm` 权限不足或 TCM 被占满 | 修正权限，`spacemit-tcm-smi -c` 后重试 |
+| SMT 报 ONNX 错误 | 镜像缺少 EP/ORT 库 | 检查 `/system/lib64/libspacemit_ep.so.2` 等是否存在 |
+| 下载后解压失败 | 空间不足或压缩包不完整 | 清理其他模型，重新下载；解压时保持应用在前台 |
+| 解压日志出现 `tar: /etc/passwd: bad record` | toybox tar 的用户库查询告警 | 不影响解压，tar 退出码为 0，可忽略 |
 
 ---
 
-## 实测验证记录
+## 性能参考数据
 
-以下为在 **SpaceMIT K3 Pico ITX** 真机（riscv64、内核 6.18.3、16 核、16 GB 内存）上的实测结果（`system_fingerprint: b9488-4532ab632`）。
+K3 Pico ITX（riscv64、8 核、16 GB 内存，OpenHarmony 6.1.0.35 / API 23），llama.cpp b10056，SMT 视觉后端：
 
-命令行验证方式（应用内由 `EntryAbility` 自动完成，参数一致）：
+| 项目 | FastVLM 0.5B | Qwen3.5-VL 0.8B |
+|------|--------------|-----------------|
+| 服务加载 | 5.8 秒 | 12.6 秒 |
+| 纯文本生成 | 34.0 tok/s（prompt 272 tok/s） | 20.8 tok/s（prompt 88 tok/s） |
+| 图像推理 | 33.6 tok/s（prompt 323 tok/s） | 20.2 tok/s（prompt 126 tok/s） |
+| 识别结果 | 正确描述图片 | 正确描述图片 |
 
-```bash
-hdc shell 'pkill -9 llama-server; sleep 1; \
-  export TMPDIR=/data/local/tmp; \
-  mkdir -p /data/local/tmp; chmod 777 /data/local/tmp; \
-  nohup llama-server -m /etc/vlm/model.gguf \
-    --vision-backend smt --smt-config-dir /etc/vlm \
-    --host 127.0.0.1 --port 8071 -t 8 -tb 8 --reasoning off \
-    > /data/local/tmp/vlm_server.log 2>&1 &'
-```
-
-**服务就绪**（约 15 秒完成加载）：
-
-```text
-$ hdc shell "curl -s http://127.0.0.1:8071/health"
-{"status":"ok"}
-```
-
-**纯文本推理**（`stream:false`，提问「用一句话介绍你自己」）：
-
-```text
-"finish_reason":"stop"
-"usage":{"completion_tokens":48,"prompt_tokens":23,"total_tokens":71}
-"timings":{"prompt_per_second":357.17,"predicted_per_second":51.78}
-```
-
-生成速度约 **51.8 tok/s**，prompt 处理约 357 tok/s。
-
-**图像推理**（内置 `default_image.jpg` 转 base64，提问「请描述这张图片」）：
-
-```text
-"finish_reason":"length"
-"usage":{"completion_tokens":128,"prompt_tokens":87,"total_tokens":215}
-"timings":{"prompt_per_second":394.27,"predicted_per_second":48.61}
-```
-
-模型正确识别出图片内容（四人肖像照），生成速度约 **48.6 tok/s**。SMT 视觉后端与 TCM 加速均生效。
-
-> 图像请求 JSON 可用 PowerShell 生成：
-> ```powershell
-> $img = [Convert]::ToBase64String([IO.File]::ReadAllBytes("<图片路径>"))
-> $body = @{ messages=@(@{ role="user"; content=@(
->     @{ type="image_url"; image_url=@{ url="data:image/jpeg;base64,$img" } },
->     @{ type="text"; text="请描述这张图片" }) }); stream=$false; max_tokens=128 } |
->   ConvertTo-Json -Depth 10 -Compress
-> [IO.File]::WriteAllText("img_req.json", $body)
-> # 然后：hdc file send img_req.json /data/local/tmp/img_req.json
-> #       hdc shell "curl -s http://127.0.0.1:8071/v1/chat/completions -H 'Content-Type: application/json' -d @/data/local/tmp/img_req.json"
-> ```
+> 两种模型均按文档中的启动命令运行；请求体建议写入文件后用 `curl -d @file` 发送，避免多层 shell 吞引号。
 
 ---
 
@@ -369,49 +228,45 @@ $ hdc shell "curl -s http://127.0.0.1:8071/health"
 |------|---------|---------|
 | 后端 | CPU（llama.cpp） | SMT（SpaceMIT Multi-modal Tensor） |
 | 端口 | 8080 | 8071 |
-| 模型路径 | `/etc/model.gguf` | `/etc/vlm/model.gguf` |
-| 启动参数 | `-t 4 --ctx-size 4096` | `--vision-backend smt --smt-config-dir /etc/vlm -t 8 -tb 8 --reasoning off` |
+| 模型格式 | 单文件 `.gguf` | 目录（`config.json` + gguf + onnx） |
+| 模型来源 | 模型中心下载 | 模型中心下载并解压 |
+| 启动参数 | `--ctx-size 15360 --batch-size 512 ...` | `--vision-backend smt --smt-config-dir <dir> -t 8 -tb 8` |
 | 消息格式 | 纯文本 | 含 `image_url` 内容块（base64 data URI） |
-| 图片来源 | — | 内置 `default_image.jpg`，随每次提问自动附带 |
-| 需要 TMPDIR | 否 | 是（SMT 推理写临时文件） |
-| 需要 ONNX 库 | 否 | 是（libspacemit_ep.so + libonnxruntime.so.1） |
+| 临时目录 | 不需要 | 需要（SMT 推理写临时文件） |
 
 ---
 
 ## FAQ
 
-**Q: 状态栏一直显示「加载中」，无法对话？**
+**Q: 启动后提示「模型文件缺失」？**
 
-1. 确认模型文件已部署：`hdc shell "ls -lh /etc/vlm/"`，三个文件均需存在
-2. 确认 `llama-server` 已在 PATH：`hdc shell "which llama-server"`
-3. 查看日志：`hdc shell "hilog | grep EntryAbility"`
-4. 手动验证：`hdc shell "curl -s http://127.0.0.1:8071/health"`
+说明 `selection.json` 指向的模型目录不完整。进入模型中心重新下载，或删除该模型后选择其他模型。
+
+**Q: 状态栏一直显示「加载中」？**
+
+1. 确认模型目录中存在 `config.json` 和 `.gguf`。
+2. 确认 `llama-server` 在 PATH：`hdc shell which llama-server`。
+3. 查看日志：`hdc shell "hilog | grep VlmLauncher"`。
+4. 手动验证：`hdc shell "curl -s http://127.0.0.1:8071/health"`。
 
 **Q: 推理中途卡死或崩溃？**
 
-- 先检查 TCM 权限：`hdc shell "ls -l /dev/tcm"`，需为 `crw-rw-rw-`
-- TCM 可能被残留进程占满：`hdc shell "spacemit-tcm-smi"` 查看，`spacemit-tcm-smi -c` 释放
+先检查 `/dev/tcm` 权限与占用；TCM 被残留进程占满时用 `spacemit-tcm-smi -c` 释放后重试。
 
 **Q: 响应速度很慢（<10 tok/s）？**
 
-- 确认 SMT 后端生效：日志中应出现 `vision-backend smt` 字样
-- 确认 `/dev/tcm` 权限为 666（TCM 加速必须）
-- `-t 8 -tb 8` 已是针对 K3 16 核的推荐值
+- 确认日志中出现 `--vision-backend smt`。
+- 确认 `/dev/tcm` 为 666。
+- `-t 8 -tb 8` 已是 K3 8 核的推荐值。
 
 **Q: 如何更换为自定义图片？**
 
-替换 `entry/src/main/resources/rawfile/default_image.jpg`，重新编译 HAP 即可。图片会在每次发送时自动编码为 base64 附带到请求中。
+替换 `entry/src/main/resources/rawfile/default_image.jpg` 后重新编译；图片会在每次提问时自动编码为 base64 附带。
 
-**Q: 如何支持用户上传图片（而非内置图片）？**
+**Q: 如何支持用户自选图片？**
 
-在 `VlmService.ets` 的图片加载逻辑处改为从 `context.filesDir` 读取用户选择的图片，并在 `Index.ets` 接入 `@ohos.file.picker` 实现图片选择。
+在 `VlmService.ets` 的图片加载处改为从 `context.filesDir` 读取用户选择的图片，并在 `Index.ets` 接入 `@ohos.file.picker`。
 
-**Q: 可以与 llmchat 共用模型吗？**
+**Q: 能与 llmchat 同时运行吗？**
 
-可以。将模型推送到 `/etc/vlm/model.gguf` 后，用硬链接共享给 llmchat：
-
-```bash
-hdc shell "ln -f /etc/vlm/model.gguf /etc/model.gguf"
-```
-
-两个应用互不干扰（端口不同），但不能同时运行（同时启动会竞争 TCM 资源）。
+两者端口不同，但会竞争 TCM 资源，不建议同时运行；vlmdemo 在运行时也不要再启动其他 SMT 推理任务。
