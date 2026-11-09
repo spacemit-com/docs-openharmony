@@ -310,8 +310,8 @@ DevEco 默认 NDK 工具链不一定支持 `-march=rv64gcv`。用 SpaceMIT 工�
 
 ## 参考资料
 
-- [RISC-V Vector Extension Specification](https://github.com/riscv/riscv-v-spec)
-- [RVV Intrinsic API Reference](https://github.com/riscv-non-isa/rvv-intrinsic-doc)
+- [RISC-V Vector Extension Specification](https://github.com/riscvarchive/riscv-v-spec)
+- [RVV Intrinsic API Reference](https://github.com/riscv-non-isa/riscv-rvv-intrinsic-doc)
 - [OpenHarmony 开发文档](https://docs.openharmony.cn/)
 
 ## 许可证
