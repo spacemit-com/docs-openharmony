@@ -18,3 +18,4 @@ sidebar_position: 5
 - [浏览器](web/index.md)
 - [多屏开发](multi_screen/index.md)
 - [Skills](skills/index.md)
+- [OpenHarmony兼容性测评](xts/index.md)
